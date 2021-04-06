@@ -222,7 +222,7 @@ public class HeapDB implements DB, Iterable<Record> {
 				for (int i=0; i< indexes.length; i++) {
 					if (indexes[i]!=null) {
 						// maintain index[i], 
-						// indexes[i].insert( <<column value from record>>, blockNum );
+						indexes[i].insert(((IntField) rec.get(i)).getValue(), blockNum);
 					}
 				}
 
@@ -274,7 +274,7 @@ public class HeapDB implements DB, Iterable<Record> {
 						for (int i=0; i< indexes.length; i++) {
 							if (indexes[i]!=null) {
 								// maintain index[i], 
-								// indexes[i].delete(<<column value>>, blockNum );
+								indexes[i].delete(((IntField) rec.get(i)).getValue(), blockNum);
 							}
 						}
 
@@ -316,18 +316,22 @@ public class HeapDB implements DB, Iterable<Record> {
 					// no index on this column.  do linear scan
 					// add all records into "result"
 					for (Record rec : this) {
-						// ...
+						if(((IntField) rec.get(fieldNum)).getValue() == key) {
+							result.add(rec);
+						}
 				    }
 					
 				} else {
-					// do index lookup
-					// returns a list of block numbers
-					// call lookupInBlock to get the actual records 
-					// add records into "result'
+					List<Integer> blockNums = indexes[fieldNum].lookup(key);
+					for(Integer i: blockNums) {
+						List<Record> records = lookupInBlock(fieldNum, key, i);
+						for (Record rec : records) {
+							result.add(rec);
+						}
+					}
 				}
 
-		// replace the following line with your return statement
-		throw new UnsupportedOperationException();
+		return result;
 	}
 
 	// Perform a linear search in the block with the given blockNum
@@ -421,7 +425,19 @@ public class HeapDB implements DB, Iterable<Record> {
 		// in each block
 		
 	
-		throw new UnsupportedOperationException();
+		Record record = schema.blankRecord();
+		bf.read(bitmapBlock, blockmapBuffer); 
+		for (int blockNum = bitmapBlock + 1; blockNum <= bf.getLastBlockIndex(); blockNum++) { 
+
+			bf.read(blockNum, buffer);
+			for (int recNum = 0; recNum < recMap.size(); recNum++) { 
+				if (recMap.getBit(recNum)) {
+					int loc = recordLocation(recNum);
+					record.deserialize(buffer.buffer, loc);
+					index.insert(((IntField) record.get(fieldNum)).getValue(), blockNum);
+				}
+			}
+		}
 	}
 
 	/**
