@@ -169,6 +169,21 @@ public class OrdIndex implements DBIndex {
 		If found, return the index. If not found, it will return you the position it is supposed to be inserted on.
 	 */
 	public int insertSearch(ArrayList<Entry> entries, int left, int right, int key){
+		int mid = 0;
+		while(left <= right){
+			mid = (left+right)/2;
+			if (entries.get(mid).key == key){
+				return mid;
+			}
+			if (entries.get(mid).key > key){
+				right = mid-1;
+			}
+			else{
+				left = mid + 1;
+			}
+		}
+		return left;
+		/*
 		int mid = (left + right)/2;
 		if (right >= left){
 			if (entries.get(mid).key == key){
@@ -182,6 +197,7 @@ public class OrdIndex implements DBIndex {
 			}
 		}
 		return mid+1;
+		 */
 	}
 	/*
 		Binary search function
