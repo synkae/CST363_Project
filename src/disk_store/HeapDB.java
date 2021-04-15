@@ -222,7 +222,7 @@ public class HeapDB implements DB, Iterable<Record> {
 				for (int i=0; i< indexes.length; i++) {
 					if (indexes[i]!=null) {
 						// maintain index[i], 
-						// indexes[i].insert( <<column value from record>>, blockNum );
+						indexes[i].insert(((IntField) rec.get(i)).getValue(), blockNum);
 					}
 				}
 
@@ -273,8 +273,10 @@ public class HeapDB implements DB, Iterable<Record> {
 							// YOUR CODE HERE
 						for (int i=0; i< indexes.length; i++) {
 							if (indexes[i]!=null) {
-								// maintain index[i], 
-								// indexes[i].delete(<<column value>>, blockNum );
+								// maintain index[i],
+								for (Integer index : indexes[i].lookup(key)){
+									indexes[i].delete(key, index);
+								}
 							}
 						}
 
@@ -312,22 +314,26 @@ public class HeapDB implements DB, Iterable<Record> {
 		List<Record> result = new ArrayList<Record>();
 
 		// YOUR CODE HERE
-				if (indexes[fieldNum]==null) { 
-					// no index on this column.  do linear scan
-					// add all records into "result"
-					for (Record rec : this) {
-						// ...
-				    }
-					
-				} else {
-					// do index lookup
-					// returns a list of block numbers
-					// call lookupInBlock to get the actual records 
-					// add records into "result'
+		if (indexes[fieldNum]==null) {
+			// no index on this column.  do linear scan
+			// add all records into "result"
+			for (Record rec : this) {
+				if(((IntField) rec.get(fieldNum)).getValue() == key) {
+					result.add(rec);
 				}
+			}
 
-		// replace the following line with your return statement
-		throw new UnsupportedOperationException();
+		} else {
+			List<Integer> blockNums = indexes[fieldNum].lookup(key);
+			for(Integer i: blockNums) {
+				List<Record> records = lookupInBlock(fieldNum, key, i);
+				for (Record rec : records) {
+					result.add(rec);
+				}
+			}
+		}
+
+		return result;
 	}
 
 	// Perform a linear search in the block with the given blockNum
@@ -420,8 +426,44 @@ public class HeapDB implements DB, Iterable<Record> {
 		// iterate of all data blocks in table and all rows
 		// in each block
 		
-	
-		throw new UnsupportedOperationException();
+		/*
+		Record record = schema.blankRecord();
+		bf.read(bitmapBlock, blockmapBuffer);
+		for (int blockNum = bitmapBlock + 1; blockNum <= bf.getLastBlockIndex(); blockNum++) {
+
+			bf.read(blockNum, buffer);
+			for (int recNum = 0; recNum < recMap.size(); recNum++) {
+				if (recMap.getBit(recNum)) {
+					int loc = recordLocation(recNum);
+					record.deserialize(buffer.buffer, loc);
+					index.insert(((IntField) record.get(fieldNum)).getValue(), blockNum);
+				}
+			}
+		}
+		 */
+		StringBuffer sb = new StringBuffer();
+		Record rec = schema.blankRecord();
+		// cast to IntField
+		IntField field = ((IntField) rec.get(fieldNum));
+		// declare fieldVal variable to get .getValue() int
+		int fieldVal;
+
+		// read and print the block bitmap
+		bf.read(bitmapBlock, blockmapBuffer);
+		sb.append("Block bitmap:  " + blockMap);
+
+		for (int blockNum = bitmapBlock + 1; blockNum <= bf.getLastBlockIndex(); blockNum++) {
+			bf.read(blockNum, buffer);
+			// print the record bitmap of block
+			for (int recNum = 0; recNum < recMap.size(); recNum++) {
+				if (recMap.getBit(recNum)) {
+					fieldVal = field.getValue();
+					// record j is present; check its key value
+					rec.deserialize(buffer.buffer, recordLocation(recNum));
+					index.insert(fieldVal, blockNum);
+				}
+			}
+		}
 	}
 
 	/**
